@@ -40,3 +40,4 @@ jobs:
             git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
             git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
+# (재인덱싱용)
