@@ -1,0 +1,42 @@
+name: test e
+
+on:
+  schedule:
+    # 15분마다 (UTC). GitHub 부하에 따라 5~20분 지연될 수 있음.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}   # Actions 탭에서 수동 실행용 버튼
+
+permissions:
+  contents: write         # state.json 커밋(중복 알림 방지 상태 저장)에 필요
+
+concurrency:
+  group: vc-alert
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run alert
+        shell: pwsh
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WATCH_ALL: ${{ vars.WATCH_ALL }}
+        run: ./vc-alert.ps1
+
+      - name: Persist state
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "$(git status --porcelain state.json)" ]]; then
+            git config user.name "vc-alert-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add state.json
+            git commit -m "update state [skip ci]"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" || true
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
